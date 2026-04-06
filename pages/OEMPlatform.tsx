@@ -12,6 +12,35 @@ import { Link } from 'react-router-dom';
 import { Helmet } from 'react-helmet-async';
 
 // =========================================
+// 0. SMART IMAGE URL HELPER
+// =========================================
+
+/**
+ * Returns the correct image URL for OEM assets.
+ * - If the DB value is already a full URL (http/https) → use it directly (Supabase storage)
+ * - If it's a relative path → build the Cloudflare R2 URL
+ */
+const cleanImageUrl = (url: string): string => {
+  if (!url || typeof url !== 'string') return '';
+  
+  const R2_BASE = "https://pub-ffd0eb07a99540ac95c35c521dd8f7ae.r2.dev";
+  
+  // Already R2 → return as-is
+  if (url.startsWith(R2_BASE)) return url;
+  
+  // ✅ ANY full URL (workers.dev, supabase.co, etc.)
+  // → extract just the filename → redirect to R2
+  if (url.startsWith('http://') || url.startsWith('https://')) {
+    const fileName = url.split('/').pop(); // "1773037925108-hex.png"
+    return `${R2_BASE}/${fileName}`;
+  }
+  
+  // Relative path → prepend R2
+  const cleanPath = url.startsWith('/') ? url.slice(1) : url;
+  return `${R2_BASE}/${cleanPath}`;
+};
+
+// =========================================
 // 1. UTILITY COMPONENTS
 // =========================================
 
@@ -29,6 +58,7 @@ const ScrollReveal: React.FC<{ children: React.ReactNode; delay?: number; classN
     </motion.div>
   );
 };
+
 // Custom Screw Icon based on your uploaded image
 const CustomScrew: React.FC<{ size?: number; className?: string }> = ({ size = 80, className = "" }) => (
   <svg 
@@ -269,7 +299,7 @@ const OEMPlatform: React.FC = () => {
     };
   };
 
-  useEffect(() => {
+ useEffect(() => {
     fetchContent();
   }, []);
 
@@ -283,7 +313,6 @@ const OEMPlatform: React.FC = () => {
       setLoading(false);
     }
   };
-
   // --- DATA CLEANING UTILS ---
   const getCleanData = (input: any) => {
     let clean = { name: '', img: '' };
@@ -325,6 +354,10 @@ const OEMPlatform: React.FC = () => {
     </div>
   );
 
+  function setIsopen(arg0: boolean) {
+    throw new Error('Function not implemented.');
+  }
+
   return (
     <div className="min-h-screen bg-[#030305] text-slate-200 font-sans selection:bg-blue-500/30 selection:text-blue-200 overflow-x-hidden">
       <Helmet>
@@ -334,7 +367,28 @@ const OEMPlatform: React.FC = () => {
     name="description"
     content="Durable Fastener is an ISO 9001:2015 certified OEM fastener manufacturer in Rajkot, India. We specialize in custom automotive, industrial, and precision fasteners with global export standards."
   />
+<style>
+          {`
+            html, body {
+              max-width: 100%;
+              overflow-x: hidden;
+              width: 100%;
+              position: relative;
+            }
 
+            /* Force long words to break if they exceed container width on mobile */
+            h1, h2, h3, h4, span, p {
+              overflow-wrap: break-word;
+              word-wrap: break-word;
+              hyphens: auto;
+            }
+
+            /* Fix for Framer Motion or absolute elements causing tiny horizontal gaps */
+            * {
+              box-sizing: border-box;
+            }
+          `}
+        </style>
   {/* GEO SEO */}
   <meta name="geo.region" content="IN-GJ" />
   <meta name="geo.placename" content="Rajkot, Gujarat, India" />
@@ -360,11 +414,10 @@ const OEMPlatform: React.FC = () => {
   <meta name="twitter:title" content="OEM Fastener Manufacturer | Durable Fastener" />
   <meta name="twitter:description" content="Precision engineered OEM fasteners from India for global industries." />
 
-   <script type="application/ld+json">
-    {JSON.stringify({
+   <script type="application/ld+json">{JSON.stringify({
       "@context": "https://schema.org",
-      "@type": "Manufacturer",
-      "@id": "https://durablefastener.com/#manufacturer",
+      "@type": "Organization", 
+      "@id": "https://durablefastener.com/#organization",
       "name": "Durable Fastener",
       "url": "https://durablefastener.com",
       "logo": "https://durablefastener.com/logo.png",
@@ -400,66 +453,86 @@ const OEMPlatform: React.FC = () => {
   "url": "https://durablefastener.com/oem",
   "name": "OEM Fastener Manufacturer in India",
   "about": {
-    "@id": "https://durablefastener.com/#manufacturer"
+    "@id": "https://durablefastener.com/#organization"
   }
 })}
 </script>
 </Helmet>
 
       {/* 1. HERO */}
-      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden">
-        <div className="absolute inset-0 z-0">
-           <div className="absolute inset-0 bg-[linear-gradient(to_right,#1e293b_1px,transparent_1px),linear-gradient(to_bottom,#1e293b_1px,transparent_1px)] bg-[size:80px_80px] opacity-[0.07]"></div>
-           <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#030305]/80 to-[#030305]"></div>
-        </div>
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none"></div>
+ <section className="relative min-h-[125vh] flex items-center justify-center overflow-hidden bg-[#030305]">
+  <div className="absolute inset-0 z-0">
+    {content?.hero_video_url ? (
+      <img
+        src={cleanImageUrl(content.hero_video_url)}
+        alt="Durable Fastener Hero"
+        className="w-full h-full object-cover opacity-50" // Opacity 50% taaki text chamke
+        onLoad={() => console.log("Hero Image Loaded from Cloudflare")}
+        onError={(e) => {
+          console.error("Cloudflare Image Error:", content.hero_video_url);
+          // Fallback agar Cloudflare fail ho jaye
+          e.currentTarget.src = content.hero_video_url; 
+        }}
+      />
+    ) : (
+      <div className="absolute inset-0 bg-slate-900 opacity-20" />
+    )}
+    
+    {/* Dark Gradients for that Premium Look */}
+    <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#030305]/80 to-[#030305]"></div>
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_0%,#030305_100%)] opacity-70"></div>
+  </div>
 
-        <div className="relative z-10 max-w-7xl mx-auto px-6 text-center">
-          <ScrollReveal>
-            <div className="inline-flex items-center gap-2 px-3 py-1 border border-blue-500/20 bg-blue-500/5 rounded-full mb-8">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-              </span>
-              <span className="text-xs font-mono text-blue-400 tracking-[0.2em] uppercase">
-                Rajkot Manufacturing Hub
-              </span>
-            </div>
-          </ScrollReveal>
+  {/* Accent Glow */}
+  <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[500px] bg-blue-600/10 blur-[120px] rounded-full pointer-events-none z-0"></div>
 
-          <motion.h1 
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-            className="text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter text-white mb-6 leading-none"
-          >
-            PRECISION <br/>
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-white to-blue-500 bg-[length:200%_auto] animate-gradient">
-              ENGINEERED.
-            </span>
-          </motion.h1>
+  <div className="relative z-10 max-w-7xl mx-auto px-6 text-center">
+    <ScrollReveal>
+      <div className="inline-flex items-center gap-2 px-3 py-1 border border-blue-500/20 bg-blue-500/5 rounded-full mb-8">
+        <span className="relative flex h-2 w-2">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+        </span>
+        <span className="text-xs font-mono text-blue-400 tracking-[0.2em] uppercase">
+          Rajkot Manufacturing Hub
+        </span>
+      </div>
+    </ScrollReveal>
 
-          <ScrollReveal delay={0.3}>
-            <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-12 font-light">
-             We don't just manufacture fasteners. We engineer reliability for high-precision OEM supply chains across every industry.
-            </p>
-          </ScrollReveal>
+    <motion.h1 
+  initial={{ opacity: 0, scale: 0.95 }}
+  animate={{ opacity: 1, scale: 1 }}
+  transition={{ duration: 0.8, ease: "easeOut" }}
+  /* FIX: Changed text-6xl to text-4xl on mobile, added break-words */
+  className="text-4xl sm:text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter text-white mb-6 leading-tight md:leading-none break-words px-2"
+>
+  {content?.hero_title?.split(' ')[0] || "PRECISION"} <br/>
+  <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-500 via-white to-blue-500 bg-[length:200%_auto] animate-gradient">
+    {content?.hero_title?.split(' ').slice(1).join(' ') || "ENGINEERED."}
+  </span>
+</motion.h1>
 
-          <ScrollReveal delay={0.5}>
-            <div className="flex flex-col sm:flex-row justify-center gap-6">
-              <Link to="/rfq" className="group relative px-8 py-4 bg-blue-600 text-white font-bold rounded-sm overflow-hidden shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_40px_rgba(37,99,235,0.5)] transition-shadow">
-                <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
-                <span className="relative flex items-center gap-2">
-                  INITIATE RFQ <ArrowRight size={18} />
-                </span>
-              </Link>
-              <button className="px-8 py-4 border border-white/10 text-slate-300 font-mono text-sm hover:bg-white/5 transition-colors flex items-center gap-2">
-                <Download size={18} /> DOWNLOAD BROCHURE
-              </button>
-            </div>
-          </ScrollReveal>
-        </div>
-      </section>
+    <ScrollReveal delay={0.3}>
+      <p className="text-lg md:text-xl text-slate-400 max-w-2xl mx-auto mb-12 font-light">
+        {content?.hero_subtitle || "We don't just manufacture fasteners. We engineer reliability for high-precision OEM supply chains across every industry."}
+      </p>
+    </ScrollReveal>
+
+    <ScrollReveal delay={0.5}>
+      <div className="flex flex-col sm:flex-row justify-center gap-6">
+        <Link to="/rfq" className="group relative px-8 py-4 bg-blue-600 text-white font-bold rounded-sm overflow-hidden shadow-[0_0_20px_rgba(37,99,235,0.3)] hover:shadow-[0_0_40px_rgba(37,99,235,0.5)] transition-shadow">
+          <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300"></div>
+          <span className="relative flex items-center gap-2">
+            INITIATE RFQ <ArrowRight size={18} />
+          </span>
+        </Link>
+        <button className="px-8 py-4 border border-white/10 text-slate-300 font-mono text-sm hover:bg-white/5 transition-colors flex items-center gap-2">
+          <Download size={18} /> DOWNLOAD BROCHURE
+        </button>
+      </div>
+    </ScrollReveal>
+  </div>
+</section>
 
       {/* 2. TECHNICAL SPECS */}
       <section className="py-32 px-6 relative bg-[#050505] overflow-hidden">
@@ -469,41 +542,45 @@ const OEMPlatform: React.FC = () => {
         <div className="max-w-7xl mx-auto relative z-10">
           
           {/* Section Header */}
-          <div className="flex flex-col md:flex-row justify-between items-end mb-16 gap-6">
-            <div>
-              <div className="flex items-center gap-3 mb-4">
-                <div className="h-px w-8 bg-blue-500"></div>
-                <span className="text-blue-500 font-mono text-xs uppercase tracking-[0.2em] font-bold">
-                  Production Capabilities
-                </span>
-              </div>
-              <h3 className="text-4xl md:text-6xl font-black text-white tracking-tight leading-tight">
-                TECHNICAL <br />
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-400 to-slate-600">
-                  BASELINE.
-                </span>
-              </h3>
-            </div>
-            
-            <div className="flex items-center gap-4 border border-white/10 bg-white/5 backdrop-blur-sm px-6 py-3 rounded-sm">
-              <ShieldCheck className="text-emerald-500" size={24} />
-              <div className="flex flex-col">
-                <span className="text-white font-bold text-sm tracking-wide">ISO 9001:2015</span>
-                <span className="text-emerald-500 text-[10px] font-mono uppercase tracking-wider">Certified Facility</span>
-              </div>
-            </div>
-          </div>
+         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-16 gap-6">
+  <div>
+    <div className="flex items-center gap-3 mb-4">
+      <div className="h-px w-8 bg-blue-500"></div>
+      <span className="text-blue-500 font-mono text-xs uppercase tracking-[0.2em] font-bold">
+        Production Capabilities
+      </span>
+    </div>
+    {/* FIX: Changed text-4xl to text-3xl on mobile */}
+    <h3 className="text-3xl md:text-6xl font-black text-white tracking-tight leading-tight uppercase">
+      TECHNICAL <br />
+      <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-400 to-slate-600">
+        BASELINE.
+      </span>
+    </h3>
+  </div>
+  
+  {/* ISO Badge - Ensure it doesn't overlap */}
+  <div className="flex items-center gap-4 border border-white/10 bg-white/5 backdrop-blur-sm px-4 py-2 md:px-6 md:py-3 rounded-sm w-fit">
+    <ShieldCheck className="text-emerald-500" size={20} />
+    <div className="flex flex-col">
+      <span className="text-white font-bold text-xs md:text-sm tracking-wide">ISO 9001:2015</span>
+      <span className="text-emerald-500 text-[8px] md:text-[10px] font-mono uppercase tracking-wider">Certified Facility</span>
+    </div>
+  </div>
+</div>
 
           {/* BENTO GRID */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
             
             {/* MATERIAL */}
-            <div className="md:col-span-5 bg-[#0A0A0C] border border-white/10 rounded-xl p-8 relative overflow-hidden group hover:border-blue-500/30 transition-all">
-               <div className="flex justify-between items-start mb-6">
-                 <div>
-                    <span className="text-blue-500 font-mono text-[20px] uppercase tracking-widest mb-1 block">Raw Material</span>
-                    <h4 className="text-3xl text-white font-bold font-mono">{specs.material || "Steel & SS"}</h4>
-                 </div>
+            <div className="md:col-span-5 bg-[#0A0A0C] border border-white/10 rounded-xl p-6 md:p-8 relative overflow-hidden group hover:border-blue-500/30 transition-all">
+   <div className="flex justify-between items-start mb-6">
+     <div>
+        {/* FIX: Reduced mobile font from 20px to text-xs/sm */}
+        <span className="text-blue-500 font-mono text-xs md:text-sm uppercase tracking-widest mb-1 block">Monthly Output</span>
+        {/* FIX: Changed text-3xl to text-2xl on mobile */}
+        <h4 className="text-2xl md:text-3xl text-white font-bold font-mono">50 TONS+</h4>
+     </div>
                  <div className="p-3 bg-blue-500/10 rounded-lg text-blue-400">
                     <FlaskConical size={24} />
                  </div>
@@ -598,11 +675,17 @@ const OEMPlatform: React.FC = () => {
                  {liveThreading.length > 0 ? (
                     liveThreading.map((item: any, i: number) => {
                       const { name, img } = getCleanData(item);
+                      // ✅ FIX: Pass img through cleanImageUrl before rendering
+                      const imageUrl = cleanImageUrl(img);
                       return (
                         <div key={i} className="bg-white/5 border border-white/10 rounded-lg py-4 px-1 hover:border-blue-500/50 hover:bg-white/10 transition-all group/thread cursor-default relative flex flex-col items-center gap-3">
                            <div className="h-24 w-full flex items-center justify-center overflow-hidden">
-                              {img ? (
-                                <img src={img} alt={name} className="h-full w-auto object-contain drop-shadow-lg opacity-80 group-hover/thread:opacity-100 transition-opacity" />
+                              {imageUrl ? (
+                                <img 
+                                  src={imageUrl} 
+                                  alt={name} 
+                                  className="h-full w-auto object-contain drop-shadow-lg opacity-80 group-hover/thread:opacity-100 transition-opacity" 
+                                />
                               ) : (
                                 <Settings className="text-slate-700 h-10 w-10" />
                               )}
@@ -673,114 +756,129 @@ const OEMPlatform: React.FC = () => {
 
           <div className="flex justify-between items-center mt-4 opacity-50">
              <div className="flex gap-4">
-               <span className="text-[10px] text-slate-600 font-mono">REF: MFG-2025-A</span>
+               <span className="text-[10px] text-slate-600 font-mono"></span>
              </div>
              <div className="h-px w-32 bg-white/20"></div>
           </div>
 
           <div className="flex justify-end items-center mt-4 opacity-40">
-             <span className="text-[10px] text-slate-500 font-mono mr-2">TOLERANCE SPEC: ISO 4759-1</span>
+             <span className="text-[10px] text-slate-500 font-mono mr-2"></span>
           </div>
 
         </div>
      </section>
 
      {/* 3. CATALOGUE */}
-     <section className="py-32 px-6 bg-[#030304] relative overflow-hidden">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#1e293b_0%,#030304_70%)] opacity-30"></div>
-        <div className="max-w-7xl mx-auto relative z-10">
-          <ScrollReveal>
-            <div className="text-center mb-20">
-               <span className="text-blue-500 font-mono text-xs uppercase tracking-[0.3em] font-bold">Catalogue</span>
-              <h2 className="text-4xl md:text-5xl font-black text-white mt-2">Engineering <span className="text-blue-500">Inventory.</span></h2>
-            </div>
-          </ScrollReveal>
+    <section className="py-20 md:py-32 px-4 md:px-6 bg-[#030304] relative overflow-hidden">
+  <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,#1e293b_0%,#030304_70%)] opacity-30"></div>
+  <div className="max-w-7xl mx-auto relative z-10">
+    
+    <ScrollReveal>
+      <div className="text-center mb-12 md:mb-20">
+        <span className="text-blue-500 font-mono text-xs uppercase tracking-[0.3em] font-bold">Catalogue</span>
+        <h2 className="text-3xl md:text-5xl font-black text-white mt-2">Engineering <span className="text-blue-500">Inventory.</span></h2>
+      </div>
+    </ScrollReveal>
 
-          <div className="grid lg:grid-cols-2 gap-20">
-            {/* Head Styles */}
-            <div>
-              <ScrollReveal>
-                <div className="flex items-center gap-4 mb-8 pl-2 border-l-4 border-blue-500">
-                  <Database className="text-blue-500" size={24} />
-                  <h4 className="text-xl font-bold text-white tracking-widest uppercase">Head Styles</h4>
-                </div>
-              </ScrollReveal>
-              <div className="grid grid-cols-3 gap-8">
-                {liveHeadStyles.map((item: any, i: number) => {
-                  const { name, img } = getCleanData(item);
-                  const info = getStandard(name, 'head');
-                  return (
-                    <ScrollReveal key={i} delay={i * 0.1}>
-                      <div className="h-64 perspective-1000 group">
-                        <TiltedCard>
-                          <div className="relative h-full w-full bg-[#0B0F17] rounded-xl border border-white/10 p-6 flex flex-col items-center justify-center gap-4 overflow-hidden transition-all duration-500 group-hover:border-blue-500/40 group-hover:shadow-[0_0_40px_rgba(59,130,246,0.1)]">
-                            <div className="absolute inset-0 bg-[linear-gradient(to_right,#3b82f610_1px,transparent_1px),linear-gradient(to_bottom,#3b82f610_1px,transparent_1px)] bg-[size:20px_20px] opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 bg-blue-500/20 rounded-full blur-2xl opacity-0 group-hover:opacity-100 group-hover:scale-150 transition-all duration-700"></div>
-                            <div className="relative z-20 w-32 h-32 flex items-center justify-center transform transition-transform duration-500 group-hover:scale-110" style={{ transform: "translateZ(40px)" }}>
-                              <motion.div animate={{ y: [-5, 5, -5] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}>
-                                {img ? <img src={img} alt={name} className="w-full h-full object-contain filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] group-hover:drop-shadow-[0_20px_20px_rgba(59,130,246,0.3)] transition-all duration-300" /> : <Component size={48} className="text-slate-700" />}
-                              </motion.div>
-                            </div>
-                            <div className="absolute bottom-0 inset-x-0 p-4 bg-white/5 backdrop-blur-md border-t border-white/5 translate-y-2 group-hover:translate-y-0 transition-transform duration-300 flex flex-col items-center">
-                              <div className="text-white font-bold text-sm uppercase tracking-wider">{name}</div>
-                              <div className="flex items-center gap-2 mt-2 opacity-60 group-hover:opacity-100 transition-opacity">
-                                <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase scale-0 group-hover:scale-100 transition-transform delay-75">{info.label}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </TiltedCard>
-                      </div>
-                    </ScrollReveal>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Drive Systems */}
-            <div>
-              <ScrollReveal>
-                <div className="flex items-center gap-4 mb-8 pl-2 border-l-4 border-emerald-500">
-                  <Microscope className="text-emerald-500" size={24} />
-                  <h4 className="text-xl font-bold text-white tracking-widest uppercase">Drive Systems</h4>
-                </div>
-              </ScrollReveal>
-              <div className="grid grid-cols-3 gap-8">
-                {liveDriveSystems.map((item: any, i: number) => {
-                  const { name, img } = getCleanData(item);
-                  const info = getStandard(name, 'drive');
-                  return (
-                    <ScrollReveal key={i} delay={i * 0.1}>
-                      <div className="h-64 perspective-1000 group">
-                        <TiltedCard>
-                           <div className="relative h-full w-full bg-[#0B0F17] rounded-xl border border-white/10 p-6 flex flex-col items-center justify-center gap-4 overflow-hidden transition-all duration-500 group-hover:border-emerald-500/40 group-hover:shadow-[0_0_40px_rgba(16,185,129,0.1)]">
-                            <div className="absolute inset-0 bg-[linear-gradient(to_right,#10b98110_1px,transparent_1px),linear-gradient(to_bottom,#10b98110_1px,transparent_1px)] bg-[size:20px_20px] opacity-0 group-hover:opacity-100 transition-opacity duration-500"></div>
-                            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-24 h-24 bg-emerald-500/20 rounded-full blur-2xl opacity-0 group-hover:opacity-100 group-hover:scale-150 transition-all duration-700"></div>
-                            <div className="relative z-20 w-32 h-32 flex items-center justify-center transform transition-transform duration-500 group-hover:scale-110" style={{ transform: "translateZ(40px)" }}>
-                               <motion.div animate={{ y: [-5, 5, -5] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut", delay: 1 }}>
-                                {img ? <img src={img} alt={name} className="w-full h-full object-contain filter drop-shadow-[0_10px_10px_rgba(0,0,0,0.5)] group-hover:drop-shadow-[0_20px_20px_rgba(16,185,129,0.3)] transition-all duration-300" /> : <Microscope size={48} className="text-slate-700" />}
-                              </motion.div>
-                            </div>
-                            <div className="absolute bottom-0 inset-x-0 p-4 bg-white/5 backdrop-blur-md border-t border-white/5 translate-y-2 group-hover:translate-y-0 transition-transform duration-300 flex flex-col items-center">
-                              <div className="text-white font-bold text-sm uppercase tracking-wider">{name}</div>
-                              <div className="flex flex-col items-center mt-1 gap-1 opacity-60 group-hover:opacity-100 transition-opacity">
-                                <span className="text-[9px] text-slate-400 font-bold tracking-widest uppercase scale-0 group-hover:scale-100 transition-transform delay-75">{info.label}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </TiltedCard>
-                      </div>
-                    </ScrollReveal>
-                  );
-                })}
-              </div>
-            </div>
+    <div className="grid lg:grid-cols-2 gap-12 md:gap-20">
+      
+      {/* --- HEAD STYLES --- */}
+      <div>
+        <ScrollReveal>
+          <div className="flex items-center gap-4 mb-6 md:mb-8 pl-2 border-l-4 border-blue-500">
+            <Database className="text-blue-500" size={24} />
+            <h4 className="text-lg md:text-xl font-bold text-white tracking-widest uppercase">Head Styles</h4>
           </div>
+        </ScrollReveal>
+        
+        {/* FIX: Changed to grid-cols-2 for mobile, grid-cols-3 for tablet/desktop */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
+          {liveHeadStyles.map((item: any, i: number) => {
+            const { name, img } = getCleanData(item);
+            const imageUrl = cleanImageUrl(img);
+            const info = getStandard(name, 'head');
+            return (
+              <ScrollReveal key={i} delay={i * 0.1}>
+                {/* FIX: Dynamic height - shorter on mobile */}
+                <div className="h-48 sm:h-64 perspective-1000 group">
+                  <TiltedCard>
+                    <div className="relative h-full w-full bg-[#0B0F17] rounded-xl border border-white/10 p-4 md:p-6 flex flex-col items-center justify-center gap-2 overflow-hidden transition-all duration-500 group-hover:border-blue-500/40">
+                      <div className="relative z-20 w-24 h-24 md:w-32 md:h-32 flex items-center justify-center transform transition-transform duration-500 group-hover:scale-110">
+                        {imageUrl ? (
+                          <img src={imageUrl} alt={name} className="w-full h-full object-contain drop-shadow-lg" />
+                        ) : (
+                          <Component size={40} className="text-slate-700" />
+                        )}
+                      </div>
+                      
+                      {/* FIX: Improved text container for responsiveness */}
+                      <div className="absolute bottom-0 inset-x-0 p-2 md:p-4 bg-white/5 backdrop-blur-md border-t border-white/5 flex flex-col items-center">
+                        <div className="text-white font-bold text-[10px] sm:text-xs md:text-sm uppercase tracking-tight sm:tracking-wider text-center break-words w-full">
+                          {name}
+                        </div>
+                        <span className="hidden sm:block text-[9px] text-slate-400 font-bold tracking-widest uppercase mt-1">
+                          {info.label}
+                        </span>
+                      </div>
+                    </div>
+                  </TiltedCard>
+                </div>
+              </ScrollReveal>
+            );
+          })}
         </div>
-     </section>
+      </div>
 
-     {/* =========================================
-         4. QUALITY STANDARDS (DYNAMICALLY LOADED)
-     ========================================= */}
+      {/* --- DRIVE SYSTEMS --- */}
+      <div>
+        <ScrollReveal>
+          <div className="flex items-center gap-4 mb-6 md:mb-8 pl-2 border-l-4 border-emerald-500">
+            <Microscope className="text-emerald-500" size={24} />
+            <h4 className="text-lg md:text-xl font-bold text-white tracking-widest uppercase">Drive Systems</h4>
+          </div>
+        </ScrollReveal>
+
+        {/* FIX: Changed to grid-cols-2 for mobile */}
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8">
+          {liveDriveSystems.map((item: any, i: number) => {
+            const { name, img } = getCleanData(item);
+            const imageUrl = cleanImageUrl(img);
+            const info = getStandard(name, 'drive');
+            return (
+              <ScrollReveal key={i} delay={i * 0.1}>
+                <div className="h-48 sm:h-64 perspective-1000 group">
+                  <TiltedCard>
+                    <div className="relative h-full w-full bg-[#0B0F17] rounded-xl border border-white/10 p-4 md:p-6 flex flex-col items-center justify-center gap-2 overflow-hidden transition-all duration-500 group-hover:border-emerald-500/40">
+                      <div className="relative z-20 w-24 h-24 md:w-32 md:h-32 flex items-center justify-center transform transition-transform duration-500 group-hover:scale-110">
+                        {imageUrl ? (
+                          <img src={imageUrl} alt={name} className="w-full h-full object-contain drop-shadow-lg" />
+                        ) : (
+                          <Microscope size={40} className="text-slate-700" />
+                        )}
+                      </div>
+                      
+                      <div className="absolute bottom-0 inset-x-0 p-2 md:p-4 bg-white/5 backdrop-blur-md border-t border-white/5 flex flex-col items-center">
+                        <div className="text-white font-bold text-[10px] sm:text-xs md:text-sm uppercase tracking-tight sm:tracking-wider text-center break-words w-full">
+                          {name}
+                        </div>
+                        <span className="hidden sm:block text-[9px] text-slate-400 font-bold tracking-widest uppercase mt-1">
+                          {info.label}
+                        </span>
+                      </div>
+                    </div>
+                  </TiltedCard>
+                </div>
+              </ScrollReveal>
+            );
+          })}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+     {/* 4. QUALITY STANDARDS */}
      <section className="py-32 px-6 bg-[#050505] relative border-t border-white/5">
         <div className="max-w-7xl mx-auto relative z-10">
           
@@ -797,7 +895,7 @@ const OEMPlatform: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             
-            {/* CARD 1: RAW MATERIAL (Blue Theme) */}
+            {/* CARD 1: RAW MATERIAL */}
             <ScrollReveal delay={0.1}>
               <div className="group h-full bg-[#0A0A0C] border border-white/10 rounded-2xl p-8 hover:border-blue-500/50 hover:bg-white/[0.02] transition-all duration-500 relative overflow-hidden">
                 <div className="flex items-center gap-5 mb-8">
@@ -820,7 +918,7 @@ const OEMPlatform: React.FC = () => {
               </div>
             </ScrollReveal>
 
-            {/* CARD 2: HEAT TREATMENT (Amber Theme) */}
+            {/* CARD 2: HEAT TREATMENT */}
             <ScrollReveal delay={0.2}>
               <div className="group h-full bg-[#0A0A0C] border border-white/10 rounded-2xl p-8 hover:border-amber-500/50 hover:bg-white/[0.02] transition-all duration-500 relative overflow-hidden">
                 <div className="flex items-center gap-5 mb-8">
@@ -843,7 +941,7 @@ const OEMPlatform: React.FC = () => {
               </div>
             </ScrollReveal>
 
-            {/* CARD 3: SURFACE FINISH (Emerald Theme) */}
+            {/* CARD 3: SURFACE FINISH */}
             <ScrollReveal delay={0.3}>
               <div className="group h-full bg-[#0A0A0C] border border-white/10 rounded-2xl p-8 hover:border-emerald-500/50 hover:bg-white/[0.02] transition-all duration-500 relative overflow-hidden">
                 <div className="flex items-center gap-5 mb-8">
@@ -870,7 +968,7 @@ const OEMPlatform: React.FC = () => {
         </div>
      </section>
      
-     {/* 7. THE GOLDEN SAMPLE */}
+     {/* 5. THE GOLDEN SAMPLE */}
      <ProtocolVisualization 
         theme="amber" 
         icon={CustomScrew} 
@@ -879,16 +977,16 @@ const OEMPlatform: React.FC = () => {
         steps={["Drawing Approval", "Lab Testing", "Sample Dispatch", "Mass Production"]}
      />
 
-     {/* 8. FOOTER CTA */}
+     {/* 6. FOOTER CTA */}
      <section className="py-24 bg-white text-black relative">
        <div className="max-w-4xl mx-auto px-6 text-center">
           <ScrollReveal>
             <h2 className="text-5xl md:text-7xl font-black tracking-tighter mb-8">READY TO <span className="text-blue-600">SCALE?</span></h2>
           </ScrollReveal>
           <ScrollReveal delay={0.2}>
-            <a href="mailto:info@durablefastener.com" className="px-10 py-5 bg-black text-white font-bold rounded-sm hover:scale-105 transition-transform inline-flex items-center gap-3 text-lg shadow-2xl">
-               <Phone size={22} /> BOOK ENGINEERING CALL
-            </a>
+            <Link to="/contact" onClick={() => setIsopen(false)} className="px-10 py-5 bg-black text-white font-bold rounded-sm hover:scale-105 transition-transform inline-flex items-center gap-3 text-lg shadow-2xl">
+               BOOK ENGINEERING CALL
+            </Link>
           </ScrollReveal>
        </div>
      </section>

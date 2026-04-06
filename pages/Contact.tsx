@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { 
   Mail, Phone, MapPin, Send, Loader2, 
   Globe, CheckCircle2, X, Paperclip, 
@@ -9,7 +9,7 @@ import {
 import { Helmet } from 'react-helmet-async';
 
 // REPLACE THIS with your new Web App URL from the script above
-const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbzR2Tv85F-MNNePk32-FuWH4zE14LQtCt_O2Wxk5dKktqUmJpFq7kzWUqReYH2ih9xC/exec';
+const GOOGLE_SHEET_URL = 'https://script.google.com/macros/s/AKfycbwNkC7toeRA5-rJP5Pn74lJPI8b0qEXEjrAt0_jW09TXRmNUd6mRK62IoGTUWPbCwd5/exec';
 
 // YOUR SPECIFIC PROJECT URL
 const SUPABASE_PROJECT_URL = 'https://wterhjmgsgyqgbwviomo.supabase.co'; 
@@ -170,10 +170,17 @@ try {
     }
   };
 
-  const cardSlideUp = {
-    hidden: { opacity: 0, y: 40 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.6, ease: "easeOut" } }
-  };
+ const cardSlideUp: Variants = {
+  hidden: { opacity: 0, y: 40 },
+  visible: { 
+    opacity: 1, 
+    y: 0, 
+    transition: { 
+      duration: 0.6, 
+      ease: "easeOut" // TypeScript now knows this is a valid Framer easing string
+    } 
+  }
+};
 
   return (
     <div className="bg-gray-50 min-h-screen font-sans relative">
